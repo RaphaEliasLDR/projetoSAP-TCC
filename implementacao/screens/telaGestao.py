@@ -20,7 +20,7 @@ import os
 import uuid
 import json
 import requests
- 
+
 from screens.api import enviar_prato_para_api
 from screens.api import atualizar_prato_api
 from screens.api import listar_pratos_da_api
@@ -28,7 +28,6 @@ from screens.api import deletar_prato_api
 from screens.api import enviar_funcionario_para_api
 from screens.api import atualizar_funcionario_api
 from screens.api import deletar_funcionario_api
-
 
 
 Window.size = (360, 640)
@@ -215,8 +214,9 @@ KV = '''
         orientation: 'horizontal'
         padding: dp(20)
         spacing: dp(20)
-
+        
         FloatLayout:
+            
             size_hint: None, None
             size: dp(150), dp(130)  # Tamanho menor
             pos_hint: {"center_x": 0.5, "center_y": 0.5}
@@ -502,10 +502,11 @@ KV = '''
             on_release: root.manager.parent.mudar_tela('cadastro_funcionario')
 '''
 
-class LoginScreen(Screen): pass
-def go_back_to_initial_screen(self):
+class LoginScreen(Screen):
+    def go_back_to_initial_screen(self):
         # Aqui você deve acessar o ScreenManager principal e mudar para 'tela_inicial'
-        self.manager.manager.current = 'tela_inicial'
+        self.manager.parent.manager.current = 'tela_inicial'
+
 class CadastroGerenteScreen(Screen): pass
 class SelecaoCadastroScreen(Screen): pass
 class CadastroPratoScreen(Screen): pass
