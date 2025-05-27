@@ -7,6 +7,7 @@ from kivy.core.text import LabelBase
 
 from screens.telaDeInicializacao import TelaDeInicializacao
 from screens.telaPedidos import TelaPedidos
+from screens.telaGestao import TelaGestao
 from screens.telaMenu import TelaMenu  # Importe a TelaMenu
 
 Window.size = (360, 800)
@@ -25,6 +26,7 @@ class SistemaPedidosApp(MDApp):
         sm = MDScreenManager()
         sm.add_widget(TelaDeInicializacao(name="tela_inicial"))
         sm.add_widget(TelaPedidos(name="tela_pedido"))
+        sm.add_widget(TelaGestao(name="tela_gestao"))
         sm.add_widget(TelaMenu(name="tela_menu"))  # Adicione a TelaMenu
 
         sm.current = "tela_inicial"
