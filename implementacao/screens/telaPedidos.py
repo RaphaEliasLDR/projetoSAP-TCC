@@ -14,6 +14,23 @@ from kivy.clock import Clock
 from kivy.properties import ListProperty, NumericProperty
 from kivy.utils import get_color_from_hex
 from functools import partial
+import json
+import os
+
+def carregar_pratos():
+    caminho_arquivo = 'pratos.json'
+    if not os.path.exists(caminho_arquivo):
+        return []  # Se o arquivo não existe, retorna lista vazia
+    
+    with open(caminho_arquivo, 'r', encoding='utf-8') as f:
+        try:
+            pratos = json.load(f)
+            return pratos
+        except json.JSONDecodeError:
+            # Se o JSON estiver com erro, retorna vazio
+            return []
+
+
 
 class PedidoStyledButton(Button):
     button_bg_color = ListProperty([0, 0.5, 0, 1])
@@ -203,25 +220,24 @@ class TelaPedidos(MDScreen):
         layout.clear_widgets()
         layout.bind(minimum_height=layout.setter('height'))
 
-        categorias = {
-            "Prato Principal": [
-                {"nome": "Strogonoff", "preco": "R$ 25,00", "imagem": "assets/pratos/strogonoff.png"},
-                {"nome": "Macarronada", "preco": "R$ 20,00", "imagem": "assets/pratos/macarronada.png"},
-                {"nome": "Feijoada", "preco": "R$ 30,00", "imagem": "assets/pratos/feijoada.png"}
-            ],
-            "Sobremesas": [
-                {"nome": "Pudim", "preco": "R$ 10,00", "imagem": "assets/pratos/pudim.png"},
-                {"nome": "Brigadeiro", "preco": "R$ 5,00", "imagem": "assets/pratos/brigadeiro.png"},
-                {"nome": "Torta de Maçã", "preco": "R$ 20,00", "imagem": "assets/pratos/tortaDeMaca.png"}
-            ]
-        }
+        pratos = carregar_pratos()  # Aqui você carrega seus pratos cadastrados
+        categorias = {}
+
+    # Agrupar pratos por categoria
+        for prato in pratos:
+            cat = prato.get('categoria', 'Outros')
+            if cat not in categorias:
+                categorias[cat] = []
+            categorias[cat].append(prato)   
 
         for categoria, itens in categorias.items():
             layout.add_widget(Label(text=f"[b]{categoria}[/b]", markup=True, font_name="MontserratBold", color=(1,1,1,1), size_hint_y=None, height=dp(30)))
             for item in itens:
                 box = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(80), spacing=dp(10))
-                box.add_widget(Image(source=item['imagem'], size_hint_x=None, width=dp(80), fit_mode='contain'))
-                box.add_widget(Label(text=f"{item['nome']}\n{item['preco']}", color=(1,1,1,1), font_name="MontserratBold", size_hint_x=0.7))
+                box.add_widget(Image(source=item['imagem'], size_hint_x=None, width=dp(100), fit_mode='contain'))
+                preco_formatado = f"R$ {float(item['preco']):.2f}".replace('.', ',')
+                box.add_widget(Label(text=f"{item['nome']}\n{preco_formatado}",color=(1,1,1,1), font_name="MontserratBold", size_hint_x=0.7))
+
                 btn = PedidoStyledButton(
                     text="ADICIONAR",
                     button_bg_color=get_color_from_hex("#2AB630"),
@@ -243,8 +259,11 @@ class TelaPedidos(MDScreen):
         lista.clear_widgets()
         lista.bind(minimum_height=lista.setter('height'))
         for nome, quantidade in self.itens_selecionados.items():
-            lista.add_widget(Label(text=f"{nome} ({quantidade})", font_name="MontserratBold", color=(1,1,1,1), size_hint_y=None, height=dp(30)))
-
+            lista.add_widget(Label(text=f"{nome} ({quantidade})",
+                               font_name="MontserratBold",
+                               color=(1,1,1,1),
+                               size_hint_y=None,
+                               height=dp(30)))
     def editar_pedido(self):
         self.mostrar_popup_edicao_pedido()
 
