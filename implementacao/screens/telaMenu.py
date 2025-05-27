@@ -93,6 +93,9 @@ class TelaMenu(MDScreen):
         self.manager.current = 'tela_pedido'  # Volta para a tela inicial
 
     def go_to_status(self):
+        self.manager.current = 'tela_gestao' 
+
+    def go_to_status(self):
         print("Indo para a tela de STATUS")
         # Implemente a lógica para ir para a tela de STATUS
         # Exemplo: self.manager.current = 'tela_status'
