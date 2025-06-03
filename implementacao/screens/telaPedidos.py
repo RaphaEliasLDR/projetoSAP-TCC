@@ -14,23 +14,8 @@ from kivy.clock import Clock
 from kivy.properties import ListProperty, NumericProperty
 from kivy.utils import get_color_from_hex
 from functools import partial
-import json
-import os
-
-def carregar_pratos():
-    caminho_arquivo = 'pratos.json'
-    if not os.path.exists(caminho_arquivo):
-        return []  # Se o arquivo não existe, retorna lista vazia
-    
-    with open(caminho_arquivo, 'r', encoding='utf-8') as f:
-        try:
-            pratos = json.load(f)
-            return pratos
-        except json.JSONDecodeError:
-            # Se o JSON estiver com erro, retorna vazio
-            return []
-
-
+from datetime import datetime
+from database import DatabaseManager
 
 class PedidoStyledButton(Button):
     button_bg_color = ListProperty([0, 0.5, 0, 1])
@@ -163,7 +148,6 @@ KV = '''
                     size_hint_y: None
                     height: self.minimum_height
                     spacing: dp(5)
-
             BoxLayout:
                 size_hint_y: None
                 height: dp(50)
@@ -205,9 +189,20 @@ class TelaPedidos(MDScreen):
         self.itens_selecionados = {}
         self.popup_edicao_ref = None
         self._items_list_layout_popup = None
+        self.db_manager = DatabaseManager()
+        self.db_manager.connect()
 
-    def on_kv_post(self, base_widget):
+    def on_enter(self, *args):
+        """Chamado quando a tela é exibida"""
+        if not hasattr(self, 'db_manager') or not self.db_manager.connection.is_connected():
+            self.db_manager = DatabaseManager()
+            self.db_manager.connect()
         self.mostrar_todas_categorias()
+
+    def on_pre_leave(self, *args):
+        """Chamado quando a tela está prestes a ser deixada"""
+        if hasattr(self, 'db_manager') and self.db_manager.connection.is_connected():
+            self.db_manager.disconnect()
 
     def go_back_to_initial_screen(self):
         self.manager.current = 'tela_inicial'
@@ -220,24 +215,69 @@ class TelaPedidos(MDScreen):
         layout.clear_widgets()
         layout.bind(minimum_height=layout.setter('height'))
 
-        pratos = carregar_pratos()  # Aqui você carrega seus pratos cadastrados
-        categorias = {}
+        # Ordem desejada das categorias (nomes exatos como estão no banco)
+        ORDEM_CATEGORIAS = [
+            'Prato Principal',
+            'Sobremesa',
+            'Bebidas',
+            'Lanches'
+        ]
 
-    # Agrupar pratos por categoria
-        for prato in pratos:
-            cat = prato.get('categoria', 'Outros')
-            if cat not in categorias:
-                categorias[cat] = []
-            categorias[cat].append(prato)   
+        # Pega todas categorias do banco uma única vez
+        todas_categorias = dict(self.db_manager.get_all_categories())
+        
+        # Filtra e ordena conforme a ordem definida
+        categorias_ordenadas = [
+            (id, nome) for nome in ORDEM_CATEGORIAS 
+            for id, cat_nome in todas_categorias.items() 
+            if cat_nome == nome
+        ]
 
-        for categoria, itens in categorias.items():
-            layout.add_widget(Label(text=f"[b]{categoria}[/b]", markup=True, font_name="MontserratBold", color=(1,1,1,1), size_hint_y=None, height=dp(30)))
-            for item in itens:
-                box = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(80), spacing=dp(10))
-                box.add_widget(Image(source=item['imagem'], size_hint_x=None, width=dp(100), fit_mode='contain'))
-                preco_formatado = f"R$ {float(item['preco']):.2f}".replace('.', ',')
-                box.add_widget(Label(text=f"{item['nome']}\n{preco_formatado}",color=(1,1,1,1), font_name="MontserratBold", size_hint_x=0.7))
-
+        for cat_id, cat_name in categorias_ordenadas:
+            layout.add_widget(Label(
+                text=f"[b]{cat_name}[/b]",
+                markup=True,
+                font_name="MontserratBold",
+                color=(1,1,1,1),
+                size_hint_y=None,
+                height=dp(30)
+            ))
+            
+            itens = self.db_manager.get_items_by_category(cat_name)
+            
+            if not itens:
+                layout.add_widget(Label(
+                    text="Nenhum item nesta categoria.",
+                    color=(1,1,1,1),
+                    size_hint_y=None,
+                    height=dp(30)
+                ))
+                continue
+                
+            for item_id, nome, imagem_nome, preco, categoria_id in itens:
+                box = BoxLayout(
+                    orientation='horizontal', 
+                    size_hint_y=None, 
+                    height=dp(80), 
+                    spacing=dp(10)
+                )
+                
+                imagem_path = f"assets/pratos/{imagem_nome}" if imagem_nome else "assets/placeholder.png"
+                
+                box.add_widget(Image(
+                    source=imagem_path, 
+                    size_hint_x=None, 
+                    width=dp(80), 
+                    fit_mode='contain'
+                ))
+                
+                box.add_widget(Label(
+                    text=f"{nome}\nR$ {preco:.2f}", 
+                    color=(1,1,1,1), 
+                    font_name="MontserratBold", 
+                    size_hint_x=0.7
+                ))
+                
                 btn = PedidoStyledButton(
                     text="ADICIONAR",
                     button_bg_color=get_color_from_hex("#2AB630"),
@@ -246,24 +286,36 @@ class TelaPedidos(MDScreen):
                     button_radius=dp(5),
                     font_size="12sp"
                 )
-                btn.bind(on_release=partial(self.adicionar_item, item['nome']))
+                btn.bind(on_release=partial(self.adicionar_item, item_id, nome, preco))
                 box.add_widget(btn)
                 layout.add_widget(box)
 
-    def adicionar_item(self, nome, *args):
-        self.itens_selecionados[nome] = self.itens_selecionados.get(nome, 0) + 1
+    def adicionar_item(self, item_id, nome, preco, *args):
+        if item_id not in self.itens_selecionados:
+            self.itens_selecionados[item_id] = {
+                'nome': nome,
+                'preco': float(preco),
+                'quantidade': 1
+            }
+        else:
+            self.itens_selecionados[item_id]['quantidade'] += 1
+            
         self.atualizar_lista_pedidos()
 
     def atualizar_lista_pedidos(self):
         lista = self.ids.lista_pedidos
         lista.clear_widgets()
         lista.bind(minimum_height=lista.setter('height'))
-        for nome, quantidade in self.itens_selecionados.items():
-            lista.add_widget(Label(text=f"{nome} ({quantidade})",
-                               font_name="MontserratBold",
-                               color=(1,1,1,1),
-                               size_hint_y=None,
-                               height=dp(30)))
+        
+        for item_id, dados in self.itens_selecionados.items():
+            lista.add_widget(Label(
+                text=f"{dados['nome']} ({dados['quantidade']}) - R$ {dados['preco'] * dados['quantidade']:.2f}", 
+                font_name="MontserratBold", 
+                color=(1,1,1,1), 
+                size_hint_y=None, 
+                height=dp(30)
+            ))
+
     def editar_pedido(self):
         self.mostrar_popup_edicao_pedido()
 
@@ -309,14 +361,14 @@ class TelaPedidos(MDScreen):
             layout.add_widget(Label(text="Nenhum item para editar.", color=(1,1,1,1), font_name="MontserratBold", size_hint_y=None, height=dp(40)))
             return
 
-        for nome, qtd in sorted(self.itens_selecionados.items()):
+        for item_id, dados in sorted(self.itens_selecionados.items(), key=lambda x: x[1]['nome']):
             linha = BoxLayout(orientation='horizontal', 
                             size_hint_y=None, 
                             height=dp(45),
                             spacing=dp(5),
                             padding=[dp(5), 0, dp(5), 0])
             
-            lbl = Label(text=f"{nome} ({qtd})", 
+            lbl = Label(text=f"{dados['nome']} ({dados['quantidade']})", 
                       font_name="MontserratBold", 
                       color=(1,1,1,1),
                       size_hint_x=0.7,
@@ -336,7 +388,7 @@ class TelaPedidos(MDScreen):
                 button_radius=dp(5),
                 padding=[dp(-1), dp(-1)]
             )
-            btn_menos.bind(on_release=partial(self.decrementar_quantidade_item, nome))
+            btn_menos.bind(on_release=partial(self.decrementar_quantidade_item, item_id))
             linha.add_widget(btn_menos)
             
             btn_mais = PedidoStyledButton(
@@ -348,21 +400,22 @@ class TelaPedidos(MDScreen):
                 button_radius=dp(5),
                 padding=[dp(-2), dp(-2)]
             )
-            btn_mais.bind(on_release=partial(self.incrementar_quantidade_item, nome))
+            btn_mais.bind(on_release=partial(self.incrementar_quantidade_item, item_id))
             linha.add_widget(btn_mais)
             
             layout.add_widget(linha)
 
-    def decrementar_quantidade_item(self, nome, *args):
-        if nome in self.itens_selecionados:
-            self.itens_selecionados[nome] -= 1
-            if self.itens_selecionados[nome] <= 0:
-                del self.itens_selecionados[nome]
+    def decrementar_quantidade_item(self, item_id, *args):
+        if item_id in self.itens_selecionados:
+            self.itens_selecionados[item_id]['quantidade'] -= 1
+            if self.itens_selecionados[item_id]['quantidade'] <= 0:
+                del self.itens_selecionados[item_id]
         self.atualizar_lista_pedidos()
         self._atualizar_conteudo_popup_edicao(self._items_list_layout_popup)
 
-    def incrementar_quantidade_item(self, nome, *args):
-        self.itens_selecionados[nome] = self.itens_selecionados.get(nome, 0) + 1
+    def incrementar_quantidade_item(self, item_id, *args):
+        if item_id in self.itens_selecionados:
+            self.itens_selecionados[item_id]['quantidade'] += 1
         self.atualizar_lista_pedidos()
         self._atualizar_conteudo_popup_edicao(self._items_list_layout_popup)
 
@@ -374,17 +427,85 @@ class TelaPedidos(MDScreen):
 
     def confirmar_pedido(self):
         mesa = self.ids.mesa_input.text.strip()
+        observacao_geral = self.ids.observacao_input.text.strip() or None
+        
         if not mesa or not self.itens_selecionados:
             self.mostrar_popup("Erro", "Mesa e itens são obrigatórios!")
             return
-        self.mostrar_popup("Sucesso", "Pedido adicionado!")
-        self.cancelar_pedido()
+        
+        try:
+            # Garçom padrão (deve ser substituído pelo ID do usuário logado)
+            garcom_id = 2
+            
+            # Validação do número da mesa
+            try:
+                mesa_numero = int(mesa)
+            except ValueError:
+                self.mostrar_popup("Erro", "Número da mesa inválido! Deve ser um valor inteiro.")
+                return
+            
+            # Obtém o ID da mesa
+            mesa_id = self.db_manager.get_mesa_id(mesa_numero)
+            if not mesa_id:
+                self.mostrar_popup("Erro", f"Mesa {mesa_numero} não encontrada!")
+                return
+                
+            # Obtém o ID do status "Pendente"
+            status_id = self.db_manager.get_status_id('Pendente')
+            if not status_id:
+                raise Exception("Status 'Pendente' não configurado no sistema")
+            
+            # Inicia transação
+            self.db_manager.start_transaction()
+            
+            try:
+                # Insere o pedido principal
+                pedido_id = self.db_manager.insert_pedido(
+                    garcom_id=garcom_id,
+                    mesa_id=mesa_id,
+                    status_id=status_id,
+                    data_hora=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    observacao=observacao_geral
+                )
+                
+                if not pedido_id:
+                    raise Exception("Falha ao criar pedido")
+                
+                # Insere os itens do pedido
+                for item_id, dados in self.itens_selecionados.items():
+                    success = self.db_manager.insert_item_pedido(
+                        pedido_id=pedido_id,
+                        item_id=item_id,
+                        quantidade=dados['quantidade'],
+                        preco_unitario=dados['preco']
+                    )
+                    if not success:
+                        raise Exception(f"Falha ao inserir item {item_id}")
+                
+                # Confirma a transação
+                self.db_manager.commit_transaction()
+                
+                # Log para depuração
+                print(f"Pedido #{pedido_id} confirmado com sucesso!")
+                print(f"Itens: {len(self.itens_selecionados)}")
+                print(f"Mesa: {mesa_id} | Status: {status_id}")
+                
+                self.mostrar_popup("Sucesso", f"Pedido #{pedido_id} registrado com sucesso!")
+                self.cancelar_pedido()
+                
+            except Exception as e:
+                # Em caso de erro, faz rollback
+                self.db_manager.rollback_transaction()
+                print(f"Erro durante a transação: {e}")
+                raise
+                
+        except Exception as e:
+            print(f"Erro ao confirmar pedido: {e}")
+            self.mostrar_popup("Erro", f"Falha ao registrar pedido:\n{str(e)}")
 
     def mostrar_popup(self, titulo, mensagem):
-        # Layout principal
         main_layout = BoxLayout(orientation='vertical', padding=dp(15), spacing=dp(15))
         
-        # Layout para a mensagem (centralizada)
         message_layout = BoxLayout(size_hint_y=0.7)
         lbl = Label(text=mensagem, 
                   font_name="MontserratBold", 
@@ -394,7 +515,6 @@ class TelaPedidos(MDScreen):
         message_layout.add_widget(lbl)
         main_layout.add_widget(message_layout)
         
-        # Layout para o botão (centralizado)
         button_layout = BoxLayout(size_hint_y=0.3, padding=(dp(20), 0, dp(20), 0))
         btn = PedidoStyledButton(
             text="FECHAR", 

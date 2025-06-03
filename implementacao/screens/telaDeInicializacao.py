@@ -62,24 +62,26 @@ KV_CONTENT = '''
                 text: 'PEDIDOS'
                 button_bg_color: 0.047, 0.533, 0.066, 1
                 button_radius: dp(12)
-                on_release: app.root.current = 'tela_pedido'
+                on_release: root.go_to_login('Garçom')
 
             CustomStyledButton:
                 text: 'COZINHA'
                 button_bg_color: 0.101, 0.513, 0.917, 1
                 button_radius: dp(12)
-                on_release:
-                    if app.root.has_screen('tela_cozinha'): app.root.current = 'tela_cozinha'
+                on_release: root.go_to_login('Cozinheiro')
 
             CustomStyledButton:
                 text: 'GESTÃO'
                 button_bg_color: 0.309, 0.309, 0.309, 1
                 button_radius: dp(12)
-                on_release:
-                    if app.root.has_screen('tela_gestao'): app.root.current = 'tela_gestao'
+                on_release: root.go_to_login('Gerente')
 '''
 
 Builder.load_string(KV_CONTENT)
 
 class TelaDeInicializacao(MDScreen):
-    pass
+    def go_to_login(self, user_type):
+        login_screen = self.manager.get_screen('tela_login')
+        login_screen.login_type_expected = user_type
+        print(f"DEBUG: Em TelaDeInicializacao.go_to_login - 'login_type_expected' definido para: '{login_screen.login_type_expected}'")
+        self.manager.current = 'tela_login'
