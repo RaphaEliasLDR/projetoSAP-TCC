@@ -1,75 +1,23 @@
 # screens/telaCozinha.py
-
 from kivy.lang import Builder
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.label import MDLabel
-from kivymd.uix.boxlayout import MDBoxLayout # Usado para centralizar o texto
-from kivy.metrics import dp # Para padding e espaçamento
-from kivy.utils import get_color_from_hex # Para cores de texto
-from kivymd.app import MDApp # Para acessar o usuário logado
-
-KV_CONTENT = '''
-#:import dp kivy.metrics.dp
-#:import get_color_from_hex kivy.utils.get_color_from_hex
-
-<TelaCozinha>: # O nome da classe DEVE SER TelaCozinha
-    name: 'tela_cozinha' # O nome da tela no ScreenManager
-    md_bg_color: 0.1, 0.1, 0.1, 1 # Fundo escuro simples
-
-    MDBoxLayout:
-        orientation: 'vertical'
-        padding: dp(30)
-        spacing: dp(25)
-        pos_hint: {'center_x': 0.5, 'center_y': 0.5}
-        size_hint_y: None
-        height: self.minimum_height
-
-        MDLabel:
-            text: "LOGIN REALIZADO COM SUCESSO!"
-            font_name: "MontserratBold"
-            font_size: "28sp"
-            halign: "center"
-            size_hint_y: None
-            height: self.texture_size[1]
-            color: get_color_from_hex("#4CAF50") # Verde
-
-        MDLabel:
-            id: logged_in_user_label
-            text: "Bem-vindo, Cozinheiro!" # Será atualizado dinamicamente
-            font_name: "MontserratBold"
-            font_size: "18sp"
-            halign: "center"
-            size_hint_y: None
-            height: self.texture_size[1]
-            color: 1, 1, 1, 1
-'''
-
-Builder.load_string(KV_CONTENT)
-
-class TelaCozinha(MDScreen):
-    def on_enter(self, *args):
-        # Atualiza a mensagem de boas-vindas com o nome do usuário logado
-        app = MDApp.get_running_app()
-        if app.logged_in_user:
-            self.ids.logged_in_user_label.text = f"Bem-vindo, {app.logged_in_user['nome']}!"
-        else:
-            self.ids.logged_in_user_label.text = "Usuário não logado."
-
-from kivymd.uix.screen import MDScreen
-from kivy.lang import Builder
-from kivymd.uix.label import MDLabel
+from kivymd.uix.boxlayout import MDBoxLayout
+from kivy.metrics import dp
+from kivy.utils import get_color_from_hex
+from kivymd.app import MDApp
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 from kivymd.uix.button import MDRaisedButton, MDFlatButton
 from kivymd.uix.card import MDCard
 from kivymd.uix.dialog import MDDialog
-from kivy.metrics import dp
-from kivy.core.window import Window
-from kivy.utils import get_color_from_hex
-from kivy.properties import ObjectProperty
 from kivy.clock import Clock
-Window.size = (360, 800)
+from kivy.properties import ObjectProperty
+
 KV = '''
+#:import dp kivy.metrics.dp
+#:import get_color_from_hex kivy.utils.get_color_from_hex
+
 <TelaCozinha>:
     name: 'tela_cozinha'
     md_bg_color: 0.1, 0.1, 0.1, 1
@@ -122,6 +70,14 @@ class TelaCozinha(MDScreen):
 
     def on_kv_post(self, base_widget):
         self.pedidos_layout = self.ids.pedidos_layout
+
+    def on_enter(self, *args):
+
+        pedidos_teste = [
+        {'mesa': '1', 'status': 'Preparando', 'itens': {'Pizza': 2, 'Refrigerante': 1}, 'observacao': 'Sem cebola'},
+        {'mesa': '2', 'status': 'Pendente', 'itens': {'Hambúrguer': 1}, 'observacao': ''},
+    ]
+        self.atualizar_pedidos(pedidos_teste)    
 
     def go_back(self):
         self.manager.current = 'tela_inicial'
@@ -309,17 +265,11 @@ class TelaCozinha(MDScreen):
 
         self.piscar_status(lbl_status, get_color_from_hex("#FFEB3B"))
 
-    def enviar_pedidos_prontos_para_status(self, pedidos):
-        pedidos_prontos = [pedido for pedido in pedidos if pedido.get('status') == 'Pronto']
-        tela_status = self.manager.get_screen('tela_status')
-        tela_status.atualizar_pedidos_prontos(pedidos_prontos)
-
     def marcar_pronto(self, pedido, lbl_status, botoes_layout):
         pedido['status'] = 'Pronto'
         lbl_status.text = f"Status: [b]{pedido['status']}[/b]"
         lbl_status.text_color = get_color_from_hex("#4CAF50")
         botoes_layout.clear_widgets()
-
 
         btn_detalhes = MDRaisedButton(
             text="Ver Detalhes",
@@ -329,12 +279,11 @@ class TelaCozinha(MDScreen):
         botoes_layout.add_widget(btn_detalhes)
 
         self.piscar_status(lbl_status, get_color_from_hex("#4CAF50"))
-        tela_status = self.manager.get_screen('tela_status')
 
-        # E depois chame o método corretamente:
+        # Atualiza a tela de status com os pedidos prontos
+        tela_status = self.manager.get_screen('tela_status')
         pedidos_prontos = [pedido]
         tela_status.atualizar_pedidos(pedidos_prontos)
-
 
     def piscar_status(self, lbl_status, cor_destino):
         original_color = lbl_status.text_color
