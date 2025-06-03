@@ -213,6 +213,51 @@ class DatabaseManager:
         query = "SELECT imagem_nome FROM item WHERE id_item = %s"
         result = self.execute_query(query, (item_id,))
         return result[0][0] if result else None
+    
+    def get_item_by_id(self, item_id):
+        query = """
+            SELECT i.id_item, i.nome, i.preco, i.imagem_nome, i.categoria_id_categoria, c.nome as categoria
+            FROM item i
+            JOIN categoria c ON i.categoria_id_categoria = c.id_categoria
+            WHERE i.id_item = %s
+        """
+        result = self.execute_query(query, (item_id,))
+        return result[0] if result else None
+
+    def update_item(self, item_id, nome, preco, categoria_id, imagem_nome=None):
+        query = """
+            UPDATE item
+            SET nome = %s, preco = %s, categoria_id_categoria = %s, imagem_nome = %s
+            WHERE id_item = %s
+        """
+        return self.execute_query(query, (nome, preco, categoria_id, imagem_nome, item_id), fetch=False)
+
+    def get_user_by_id(self, user_id):
+        query = """
+            SELECT u.id_usuario, u.nome_completo, u.telefone, u.email, 
+                u.tipo_usuario_id_tipo_usuario, t.nome_tipo as cargo
+            FROM usuario u
+            JOIN tipo_usuario t ON u.tipo_usuario_id_tipo_usuario = t.id_tipo_usuario
+            WHERE u.id_usuario = %s
+        """
+        result = self.execute_query(query, (user_id,))
+        return result[0] if result else None
+
+    def update_user(self, user_id, nome, telefone, email, tipo_usuario_id):
+        query = """
+            UPDATE usuario
+            SET nome_completo = %s, telefone = %s, email = %s, tipo_usuario_id_tipo_usuario = %s
+            WHERE id_usuario = %s
+        """
+        return self.execute_query(query, (nome, telefone, email, tipo_usuario_id, user_id), fetch=False)
+
+    def get_employees_by_type(self, tipo_usuario_id):
+        query = """
+            SELECT id_usuario, nome_completo, CPF, email, telefone, tipo_usuario_id_tipo_usuario
+            FROM usuario
+            WHERE tipo_usuario_id_tipo_usuario = %s
+        """
+        return self.execute_query(query, (tipo_usuario_id,))
 
 if __name__ == "__main__":
     db = DatabaseManager()

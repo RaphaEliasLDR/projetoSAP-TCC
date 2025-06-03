@@ -1,11 +1,13 @@
+# screens/telaMenuGestao.py
+
 from kivy.lang import Builder
 from kivy.metrics import dp
 from kivy.properties import ListProperty, NumericProperty
 from kivy.uix.button import Button
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.boxlayout import MDBoxLayout
-from kivy.uix.image import Image
-import webbrowser
+from kivy.uix.image import Image # Import adicionado para o widget Image
+import webbrowser # Adicionado import para abrir links no navegador
 
 class CustomStyledButton(Button):
     button_bg_color = ListProperty([0, 0, 0, 1])
@@ -54,7 +56,7 @@ KV_CONTENT = '''
 
         MDBoxLayout:
             orientation: 'vertical'
-            size_hint_y: 1
+            size_hint_y: 1 # Ocupa o restante do espaço vertical
             spacing: dp(20)
             padding: dp(20)
 
@@ -68,19 +70,13 @@ KV_CONTENT = '''
                 text: 'LISTAR PRATOS'
                 button_bg_color: 0.101, 0.513, 0.917, 1
                 button_radius: dp(12)
-                on_release: root.go_to_listar_pratos()
-
-            CustomStyledButton:
-                text: 'DASHBOARD'
-                button_bg_color: 0.4, 0.4, 0.9, 1
-                button_radius: dp(12)
-                on_release: root.abrir_dashboard()
+                on_release: root.go_to_listar_pratos() 
 
             CustomStyledButton:
                 text: 'VERSÃO WEB'
                 button_bg_color: 0.721, 0.525, 0.043, 1
                 button_radius: dp(12)
-                on_release: root.open_web_version()
+                on_release: root.open_web_version() # Chama a função para abrir o link
 
             CustomStyledButton:
                 text: 'VOLTAR'
@@ -96,28 +92,21 @@ class TelaMenuGestao(MDScreen):
         super().__init__(**kwargs)
 
     def go_to_listar_funcionarios(self):
-        print("Indo para a tela de LISTAR FUNCIONÁRIOS")
-        # Seu código para troca de tela ou ação aqui
+        self.manager.current = 'listar_funcionarios'
 
     def go_to_listar_pratos(self):
-        print("Indo para a tela de LISTAR PRATOS")
-        # Seu código para troca de tela ou ação aqui
+        self.manager.current = 'listar_pratos'
+       
 
     def go_to_back_gestao(self):
-        self.manager.current = 'tela_gestao'  # Ajuste o nome da tela conforme seu app
+        self.manager.current = 'tela_gestao'
 
     def open_web_version(self):
-        web_link = "https://www.google.com"  # Troque para o link da versão web real
+        web_link = "https://www.google.com" 
         try:
             webbrowser.open(web_link)
             print(f"Abrindo versão web: {web_link}")
         except Exception as e:
             print(f"Erro ao abrir o link da web: {e}")
-
-    def abrir_dashboard(self):
-        url_dashboard = "http://localhost:8501"
-        try:
-            webbrowser.open(url_dashboard)
-            print(f"Abrindo dashboard no navegador: {url_dashboard}")
-        except Exception as e:
-            print(f"Erro ao abrir o dashboard no navegador: {e}")
+          
+from kivymd.app import MDApp

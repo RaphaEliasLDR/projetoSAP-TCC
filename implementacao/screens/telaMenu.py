@@ -1,5 +1,4 @@
 # screens/telaMenu.py
-# screens/telaMenu.py
 
 from kivy.lang import Builder
 from kivy.metrics import dp
@@ -94,7 +93,8 @@ class TelaMenu(MDScreen):
         self.manager.current = 'tela_pedido' 
 
     def go_to_status(self):
-        self.manager.current = 'tela_status'
+        print("Indo para a tela de STATUS")
+        pass
 
     def go_to_historico(self):
         print("Indo para a tela de HISTÓRICO")

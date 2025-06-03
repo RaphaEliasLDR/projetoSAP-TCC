@@ -51,7 +51,7 @@ class BoasVindasScreen(MDScreen):
         if app.logged_in_user:
             self.ids.lbl_boas_vindas.text = f"Bem-vindo, {app.logged_in_user['nome']}!"
         
-        Clock.schedule_once(self.ir_para_tela_principal, 1.3)
+        Clock.schedule_once(self.ir_para_tela_principal, 1.0)
     
     def ir_para_tela_principal(self, dt):
         app = MDApp.get_running_app()

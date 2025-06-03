@@ -1,11 +1,4 @@
-import subprocess
-import threading
-import webbrowser
-import time
-import sys
-import socket
-import os
-
+# main.py
 from kivymd.app import MDApp
 from kivymd.uix.screenmanager import MDScreenManager
 from kivy.core.window import Window
@@ -23,84 +16,41 @@ from screens.telaGestao import TelaGestao
 from screens.telaMenuGestao import TelaMenuGestao
 from screens.telaCadastroFuncionario import TelaCadastroFuncionario
 from screens.telaCadastroPrato import TelaCadastroPrato
+from screens.telaListarPratos import TelaListarPratos
+from screens.telaListarFuncionarios import TelaListarFuncionarios
+
+from database import DatabaseManager
 
 Window.size = (360, 800)
-
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 LabelBase.register(
     name="MontserratBold",
     fn_regular="assets/fonts/Montserrat-Bold.ttf"
 )
 
-def porta_esta_livre(porta=8501):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        s.bind(("127.0.0.1", porta))
-        s.close()
-        return True  # Porta livre
-    except OSError:
-        return False  # Porta ocupada
-
-def iniciar_streamlit():
-    if not porta_esta_livre(8501):
-        print("Streamlit já está rodando na porta 8501. Não iniciando outra instância.")
-        return
-
-    caminho_dashboard = os.path.join(os.path.dirname(__file__), "screens", "dashboard.py")
-
-
-    def run():
-        cmd = [
-        sys.executable, "-m", "streamlit", "run", caminho_dashboard,
-        "--server.headless", "true"
-]
-
-        processo = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        for linha in processo.stdout:
-            print(linha.decode(), end='')
-
-    thread = threading.Thread(target=run, daemon=True)
-    thread.start()
-
-    time.sleep(5)
-
 class SistemaPedidosApp(MDApp):
     db = None
     logged_in_user = None
     user_type_ids = {}
 
-    # ALTERE para True se quiser usar o banco de dados
-    usar_banco = False
-
     def build(self):
-        # Inicia o Streamlit em background quando o app iniciar
-        iniciar_streamlit()
-
         self.title = "Sistema de Pedidos - SAP"
         self.theme_cls.primary_palette = "Green"
         self.theme_cls.theme_style = "Light"
 
-        if self.usar_banco:
-            self.db = DatabaseManager()
-            if not self.db.connect():
-                print("Erro crítico: Não foi possível conectar ao banco de dados.")
-                exit()
+        # Configuração do banco de dados
+        self.db = DatabaseManager()
+        if not self.db.connect():
+            print("Erro crítico: Não foi possível conectar ao banco de dados.")
+            exit()
 
-            # Carrega os tipos de usuário do banco
-            user_types = self.db.get_all_user_types()
-            if user_types:
-                for tid, tname in user_types:
-                    self.user_type_ids[tname] = tid
-        else:
-            # Dados mock para rodar sem banco
-            print("Rodando sem banco de dados: usando dados mock.")
-            self.db = None
-            self.user_type_ids = {
-                "admin": 1,
-                "usuario": 2,
-            }
+        # Carrega os tipos de usuário
+        user_types = self.db.get_all_user_types()
+        if user_types:
+            for tid, tname in user_types:
+                self.user_type_ids[tname] = tid
 
+        # Configuração do gerenciador de telas
         sm = MDScreenManager()
         sm.add_widget(TelaDeInicializacao(name="tela_inicial"))
         sm.add_widget(TelaLogin(name="tela_login"))
@@ -113,6 +63,8 @@ class SistemaPedidosApp(MDApp):
         sm.add_widget(TelaCadastroFuncionario(name='cadastro_funcionario'))
         sm.add_widget(TelaCadastroPrato(name='cadastro_prato'))
         sm.current = "tela_inicial"
+        sm.add_widget(TelaListarPratos(name='listar_pratos'))
+        sm.add_widget(TelaListarFuncionarios(name='listar_funcionarios'))
         return sm
     
     def mudar_tela(self, screen_name):
