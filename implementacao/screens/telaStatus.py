@@ -1,4 +1,3 @@
-# screens/telaStatus.py
 from kivy.lang import Builder
 from kivymd.uix.screen import MDScreen
 from kivymd.uix.dialog import MDDialog
@@ -14,20 +13,42 @@ from kivy.uix.scrollview import ScrollView
 KV_STATUS = '''
 <TelaStatus>:
     name: 'tela_status'
-    md_bg_color: 0.95, 0.95, 0.95, 1
+    md_bg_color: 0.1, 0.1, 0.1, 1  # Cor de fundo
 
     BoxLayout:
         orientation: 'vertical'
         padding: dp(10)
         spacing: dp(10)
-
-        MDLabel:
-            text: "Pedidos"
-            font_style: "H5"
+        
+        BoxLayout:
+            orientation: 'horizontal'
             size_hint_y: None
-            height: dp(40)
-            halign: "center"
-            theme_text_color: "Primary"
+            height: dp(50)
+            spacing: dp(10)
+
+            MDIconButton:  
+                text: ""
+                icon: "arrow-left"
+                theme_text_color: "Custom"
+                text_color: 1, 1, 1, 1
+                size_hint: None, None
+                size: dp(40), dp(40)
+                on_release: root.go_back()
+
+            Widget:
+
+            BoxLayout:
+                orientation: 'horizontal'
+                size_hint_x: None
+                width: dp(135)
+                pos_hint: {"center_x": 0.5}
+                Image:
+                    source: 'assets/logoSAP3.png'
+                    size_hint_x: None
+                    width: dp(135)
+                    fit_mode: 'contain'
+
+            Widget:
 
         ScrollView:
             do_scroll_x: False
@@ -40,29 +61,32 @@ KV_STATUS = '''
                 spacing: dp(10)
 '''
 
+
 Builder.load_string(KV_STATUS)
 
 class TelaStatus(MDScreen):
     def on_kv_post(self, base_widget):
         self.pedidos_prontos_layout = self.ids.pedidos_prontos_layout
-        self.simular_pedidos()
+        self.carregar_status()
 
-    def simular_pedidos(self):
-        # Simulando alguns pedidos para teste
-        pedidos_prontos = [
-            {'mesa': 1, 'status': 'Pronto', 'itens': {'Hambúrguer': 2, 'Batata Frita': 1}},
-            {'mesa': 2, 'status': 'Pronto', 'itens': {'Pizza': 1, 'Refrigerante': 2}},
-            {'mesa': 3, 'status': 'Pronto', 'itens': {'Espaguete': 1, 'Salada': 1}},
+    def go_back(self):
+        # Código para voltar à tela anterior
+        self.manager.current = 'tela_pedido'
+
+    def carregar_status(self):
+        pedidos = [
+            {"mesa": 5, "status": "Pendente", "itens": {"Pizza": 2, "Refrigerante": 1}},
+            {"mesa": 3, "status": "Preparando", "itens": {"Hamburguer": 1, "Batata Frita": 1}},
+            {"mesa": 2, "status": "Pronto", "itens": {"Espaguete": 1}},
         ]
-        self.atualizar_pedidos(pedidos_prontos)
+        self.atualizar_pedidos(pedidos)
 
-    def atualizar_pedidos(self, pedidos_prontos):
-        # Limpa a lista de pedidos
+    def atualizar_pedidos(self, pedidos):
         self.pedidos_prontos_layout.clear_widgets()
 
-        if not pedidos_prontos:
+        if not pedidos:
             lbl_vazio = MDLabel(
-                text="Nenhum pedido pronto no momento.",
+                text="Nenhum pedido no momento.",
                 halign="center",
                 theme_text_color="Hint",
                 size_hint_y=None,
@@ -71,53 +95,59 @@ class TelaStatus(MDScreen):
             self.pedidos_prontos_layout.add_widget(lbl_vazio)
             return
 
-        for pedido in pedidos_prontos:
+        for pedido in pedidos:
             card = self.criar_card_pedido_pronto(pedido)
             self.pedidos_prontos_layout.add_widget(card)
 
     def criar_card_pedido_pronto(self, pedido):
-        # Ajustando o card para um tamanho maior e uma cor bege puxando para o branco
+        # Card com fundo branco
         card = MDCard(
             orientation='vertical',
             padding=dp(10),
             spacing=dp(8),
             size_hint_y=None,
             height=dp(200),  # Card maior
-            md_bg_color=get_color_from_hex("#FAF3E0"),  # Cor de fundo bege claro
+            md_bg_color=get_color_from_hex("#FFFFFF"),  # Cor de fundo branca
             radius=[8, 8, 8, 8],  # Bordas suaves
-            elevation=8  # Elevation para manter um destaque sutil
+            elevation=8  # Elevation para destacar
         )
 
-        # Centralizando e ajustando o conteúdo dentro do card
         content_layout = BoxLayout(
             orientation='vertical',
             size_hint_y=None,
-            height=dp(180),  # Ajustando a altura do conteúdo dentro do card
+            height=dp(180),  # Altura ajustada
             spacing=dp(10),
             padding=dp(10),
             pos_hint={'center_x': 0.5}
         )
 
-        # Ajuste para o label "Mesa" com fonte menor
+        # Label "Mesa" (sem mudança de cor)
         lbl_mesa = MDLabel(
             text=f"Mesa: [b]{pedido.get('mesa', '?')}[/b]",
             markup=True,
             font_style="Body1",  # Fonte menor
-            theme_text_color="Primary",
+            theme_text_color="Primary",  # Mantém a cor primária para o título
             size_hint_y=None,
-            height=dp(30),  # Altura do label menor
+            height=dp(30),  # Altura do label
             halign="center"
         )
 
-        # Status do pedido com fonte menor
+        # Status do pedido
+        status = pedido.get('status', 'Pendente')
+        color_map = {
+            'Pendente': "#F44336",  # Vermelho
+            'Preparando': "#FF9800",  # Laranja
+            'Pronto': "#4CAF50",  # Verde
+            'Entregue': "#D32F2F"  # Vermelho para entregue
+        }
         lbl_status = MDLabel(
-            text=f"Status: [b]{pedido.get('status', 'Pronto')}[/b]",
+            text=f"Status: [b]{status}[/b]",
             markup=True,
             theme_text_color="Custom",
-            text_color=get_color_from_hex("#388E3C"),  # Cor do status (verde escuro)
+            text_color=get_color_from_hex(color_map.get(status, "#388E3C")),
             font_style="Body2",  # Fonte menor
             size_hint_y=None,
-            height=dp(20),  # Altura do label do status menor
+            height=dp(20),
             halign="center"
         )
 
@@ -128,10 +158,10 @@ class TelaStatus(MDScreen):
         lbl_itens = MDLabel(
             text=f"Itens:\n{texto_itens}",
             size_hint_y=None,
-            height=max(dp(50), dp(18) * len(itens)),  # Altura ajustada para os itens
+            height=max(dp(50), dp(18) * len(itens)),
             halign="center",
             theme_text_color="Secondary",
-            font_style="Body2"  # Fonte menor
+            font_style="Body2"
         )
 
         # Layout para os botões
@@ -143,29 +173,30 @@ class TelaStatus(MDScreen):
             pos_hint={'center_x': 0.5}
         )
 
-        # Botão "Ver Detalhes"
+        # Botões
         btn_detalhes = MDRaisedButton(
             text="Ver Detalhes",
-            md_bg_color=get_color_from_hex("#1565C0"),  # Cor de destaque azul
+            md_bg_color=get_color_from_hex("#1565C0"),
             on_release=lambda x: self.ver_detalhes(pedido)
         )
         botoes_layout.add_widget(btn_detalhes)
 
-        # Botão "Entregar"
         btn_entregar = MDRaisedButton(
             text="Entregar",
-            md_bg_color=get_color_from_hex("#4CAF50"),  # Cor do botão verde
+            md_bg_color=get_color_from_hex("#4CAF50"),
             on_release=lambda x: self.marcar_entregue(pedido, card, btn_entregar)
         )
+        # Exibir botão "Entregar" apenas para pedidos com status "Pronto"
+        if pedido['status'] != "Pronto":
+            btn_entregar.disabled = True
+            btn_entregar.md_bg_color = get_color_from_hex("#BDBDBD")  # Cor do botão desabilitado
         botoes_layout.add_widget(btn_entregar)
 
-        # Adicionando widgets ao layout do card
         content_layout.add_widget(lbl_mesa)
         content_layout.add_widget(lbl_status)
         content_layout.add_widget(lbl_itens)
         content_layout.add_widget(botoes_layout)
 
-        # Adiciona o layout de conteúdo no card
         card.add_widget(content_layout)
 
         return card
@@ -189,7 +220,7 @@ class TelaStatus(MDScreen):
             text_color=(0, 0, 0, 1),
             size_hint_y=None,
             height=dp(30),
-            font_style="Body1"  # Fonte ajustada
+            font_style="Body1"
         )
 
         lbl_itens = MDLabel(
@@ -199,7 +230,7 @@ class TelaStatus(MDScreen):
             text_color=(0, 0, 0, 1),
             size_hint_y=None,
             height=max(dp(90), dp(18) * len(pedido['itens'])),
-            font_style="Body2"  # Fonte ajustada
+            font_style="Body2"
         )
 
         content_layout.add_widget(lbl_obs)
@@ -212,8 +243,7 @@ class TelaStatus(MDScreen):
             title=f"Detalhes da Mesa {pedido['mesa']}",
             type="custom",
             content_cls=scroll,
-            buttons=[
-                MDFlatButton(
+            buttons=[MDFlatButton(
                     text="FECHAR",
                     text_color=(0, 0, 0, 1),
                     on_release=lambda x: dialog.dismiss()
@@ -223,18 +253,16 @@ class TelaStatus(MDScreen):
         dialog.open()
 
     def marcar_entregue(self, pedido, card, btn_entregar):
-        # Atualiza o status do pedido para "Entregue" e muda o texto no card
+        # Atualiza status e UI
         pedido['status'] = 'Entregue'
 
-        # Altera o status no card (não alterando a cor)
         for widget in card.children:
             if isinstance(widget, BoxLayout):
                 for label in widget.children:
                     if isinstance(label, MDLabel) and label.text.startswith("Status:"):
                         label.text = f"Status: [b]{pedido['status']}[/b]"
-                        label.text_color = get_color_from_hex("#D32F2F")  # Cor de "Entregue" (vermelho)
+                        label.text_color = get_color_from_hex("#D32F2F")  # Cor de "Entregue"
 
-        # Desabilita o botão "Entregar", muda o texto e a cor
         btn_entregar.text = "Entregue"
         btn_entregar.disabled = True
         btn_entregar.md_bg_color = get_color_from_hex("#BDBDBD")  # Cor do botão desabilitado
