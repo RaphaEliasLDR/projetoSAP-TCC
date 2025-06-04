@@ -10,7 +10,8 @@ from kivymd.uix.button import MDRaisedButton, MDFlatButton, MDIconButton
 from kivymd.uix.card import MDCard
 from kivymd.uix.label import MDLabel
 from kivy.clock import Clock
-from kivy.properties import ObjectProperty
+from kivymd.app import MDApp
+from functools import partial
 
 Window.size = (360, 800)
 
@@ -30,13 +31,15 @@ KV = '''
             height: dp(50)
             spacing: dp(10)
 
-            MDIconButton:  
-                text: ""
-                icon: "arrow-left"
+            MDRaisedButton: 
+                text: "VOLTAR"
+                md_bg_color: 1, 0, 0, 1 
                 theme_text_color: "Custom"
-                text_color: 1, 1, 1, 1
+                text_color: 1, 1, 1, 1 
+                font_size: "16sp"
+                font_name: "MontserratBold"
                 size_hint: None, None
-                size: dp(40), dp(40)
+                size: dp(40), dp(35)
                 on_release: root.go_back()
 
             BoxLayout:
@@ -62,38 +65,89 @@ KV = '''
 
 Builder.load_string(KV)
 
-
 class TelaCozinha(MDScreen):
-    pedidos_layout = ObjectProperty(None)
-    dialog = None
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.update_event = None
+        self.dialog = None
 
-    def on_kv_post(self, base_widget):
-        self.pedidos_layout = self.ids.pedidos_layout
-        self.simular_pedidos()  # Simulando dados para testes
+    def on_enter(self, *args):
+        """Called when the screen is displayed"""
+        # Schedule the first update immediately
+        Clock.schedule_once(lambda dt: self.carregar_pedidos_reais())
+        # Set up periodic updates every 10 seconds
+        self.update_event = Clock.schedule_interval(
+            lambda dt: self.carregar_pedidos_reais(), 
+            10
+        )
 
-    def simular_pedidos(self):
-    # Simulação de pedidos para testes
-        pedidos = [
-            {"mesa": 1, "status": "Pendente", "itens": {"Pizza": 2, "Refrigerante": 1}},
-            {"mesa": 2, "status": "Preparando", "itens": {"Hamburguer": 1, "Batata Frita": 2}},
-            {"mesa": 3, "status": "Pronto", "itens": {"Espaguete": 1, "Suco": 2}},
-        ]
-        self.atualizar_pedidos(pedidos)
+    def on_leave(self, *args):
+        """Called when leaving the screen"""
+        # Safely cancel the update event if it exists
+        if self.update_event is not None:
+            self.update_event.cancel()
+            self.update_event = None
+
+    def carregar_pedidos_reais(self):
+        """Load real orders from database"""
+        if not hasattr(self, 'ids') or 'pedidos_layout' not in self.ids:
+            return
+            
+        app = MDApp.get_running_app()
+        if app and app.db:
+            try:
+                pedidos_db = app.db.execute_query(
+                    """SELECT p.id_pedido, m.numero_mesa, sp.descricao as status, 
+                        GROUP_CONCAT(CONCAT(i.nome, ' x', ip.quantidade) SEPARATOR ', ') as itens,
+                        p.observacao
+                     FROM pedido p
+                     JOIN mesa m ON p.mesa_id_mesa = m.id_mesa
+                     JOIN status_pedido sp ON p.status_pedido_id_status_pedido = sp.id_status_pedido
+                     JOIN item_pedido ip ON p.id_pedido = ip.pedido_id_pedido
+                     JOIN item i ON ip.item_id_item = i.id_item
+                     WHERE sp.descricao IN ('Pendente', 'Em Preparo')
+                     GROUP BY p.id_pedido
+                     ORDER BY FIELD(sp.descricao, 'Pendente', 'Em Preparo'), p.data_hora""")
+                
+                pedidos = []
+                for id_pedido, mesa, status, itens_str, observacao in pedidos_db:
+                    itens_dict = {}
+                    for item_str in itens_str.split(', '):
+                        nome, quant = item_str.split(' x')
+                        itens_dict[nome] = int(quant)
+                    
+                    pedidos.append({
+                        'id': id_pedido,
+                        'mesa': mesa,
+                        'status': status,
+                        'itens': itens_dict,
+                        'observacao': observacao or "Nenhuma"
+                    })
+                
+                self.atualizar_pedidos(pedidos)
+            except Exception as e:
+                print(f"Erro ao carregar pedidos: {e}")
 
     def go_back(self):
+        """Return to previous screen"""
         self.manager.current = 'tela_inicial'
 
     def atualizar_pedidos(self, pedidos):
-        ordem_status = {'Pendente': 0, 'Preparando': 1, 'Pronto': 2}
+        """Update orders display"""
+        if not hasattr(self, 'ids') or 'pedidos_layout' not in self.ids:
+            return
+            
+        ordem_status = {'Pendente': 0, 'Em Preparo': 1}
         pedidos_ordenados = sorted(pedidos, key=lambda p: ordem_status.get(p.get('status', 'Pendente'), 0))
 
-        self.pedidos_layout.clear_widgets()
+        self.ids.pedidos_layout.clear_widgets()
         for pedido in pedidos_ordenados:
             pedido.setdefault('status', 'Pendente')
             card = self.criar_card_pedido(pedido)
-            self.pedidos_layout.add_widget(card)
+            self.ids.pedidos_layout.add_widget(card)
 
     def criar_card_pedido(self, pedido):
+        """Create order card widget"""
         card = MDCard(
             orientation='vertical',
             padding=dp(10),
@@ -105,6 +159,7 @@ class TelaCozinha(MDScreen):
             elevation=4
         )
 
+        # Mesa label
         lbl_mesa = MDLabel(
             text=f"Mesa: [b]{pedido['mesa']}[/b]",
             markup=True,
@@ -116,11 +171,11 @@ class TelaCozinha(MDScreen):
             valign="middle"
         )
 
+        # Status label with color coding
         status = pedido.get('status', 'Pendente')
         color_map = {
-            'Pendente': (1, 0, 0, 1),
-            'Preparando': (1, 0.8, 0, 1),
-            'Pronto': (0, 0.7, 0, 1)
+            'Pendente': (1, 0, 0, 1),    # Red
+            'Em Preparo': (1, 0.5, 0, 1) # Orange
         }
         status_color = color_map.get(status, (0, 0, 0, 1))
 
@@ -135,6 +190,7 @@ class TelaCozinha(MDScreen):
             valign="middle"
         )
 
+        # Items list (showing first 2 items + count if more)
         itens = pedido.get('itens', {})
         itens_lista = list(itens.items())[:2]
         texto_itens = "\n".join([f"{item} x{quant}" for item, quant in itens_lista])
@@ -151,6 +207,7 @@ class TelaCozinha(MDScreen):
             valign="top"
         )
 
+        # Buttons layout
         botoes_layout = BoxLayout(
             orientation='horizontal',
             size_hint_y=None,
@@ -158,29 +215,32 @@ class TelaCozinha(MDScreen):
             spacing=dp(10)
         )
 
+        # Details button
         btn_detalhes = MDRaisedButton(
             text="Ver Detalhes",
             md_bg_color=get_color_from_hex("#1565C0"),
-            on_release=lambda x: self.ver_detalhes(pedido, lbl_status)
+            on_release=partial(self.ver_detalhes, pedido)
         )
         botoes_layout.add_widget(btn_detalhes)
 
+        # Action buttons based on status
         if status == 'Pendente':
             btn_preparando = MDRaisedButton(
                 text="Preparando",
-                md_bg_color=get_color_from_hex("#FFEB3B"),
-                on_release=lambda x: self.marcar_preparando(pedido, lbl_status, botoes_layout)
+                md_bg_color=get_color_from_hex("#FF9800"),
+                on_release=partial(self.marcar_preparando, pedido)
             )
             botoes_layout.add_widget(btn_preparando)
 
-        if status == 'Preparando':
+        if status == 'Em Preparo':
             btn_pronto = MDRaisedButton(
                 text="Pronto",
                 md_bg_color=get_color_from_hex("#4CAF50"),
-                on_release=lambda x: self.marcar_pronto(pedido, lbl_status, botoes_layout)
+                on_release=partial(self.marcar_pronto, pedido)
             )
             botoes_layout.add_widget(btn_pronto)
 
+        # Add all widgets to card
         card.add_widget(lbl_mesa)
         card.add_widget(lbl_status)
         card.add_widget(lbl_itens)
@@ -188,8 +248,21 @@ class TelaCozinha(MDScreen):
 
         return card
 
-    def ver_detalhes(self, pedido, lbl_status):
-        # Mostrar detalhes do pedido em uma janela de diálogo
+    def ver_detalhes(self, pedido, *args):
+        """Show order details and automatically mark as 'Em Preparo' if 'Pendente'"""
+        app = MDApp.get_running_app()
+        if app and app.db and pedido['status'] == 'Pendente':
+            status_id = app.db.get_status_id('Em Preparo')
+            if status_id:
+                app.db.execute_query(
+                    "UPDATE pedido SET status_pedido_id_status_pedido = %s WHERE id_pedido = %s",
+                    (status_id, pedido['id']),
+                    fetch=False
+                )
+                pedido['status'] = 'Em Preparo'
+                self.carregar_pedidos_reais()  # Refresh the list
+        
+        # Build details dialog
         itens_texto = "\n".join([f"{item} x{quant}" for item, quant in pedido['itens'].items()])
         observacao = pedido.get('observacao', "Nenhuma")
 
@@ -209,6 +282,7 @@ class TelaCozinha(MDScreen):
             size_hint_y=None,
             height=dp(40)
         )
+
         lbl_itens = MDLabel(
             text=f"[b]Itens:[/b]\n{itens_texto}",
             markup=True,
@@ -241,48 +315,32 @@ class TelaCozinha(MDScreen):
         )
         self.dialog.open()
 
-    def marcar_preparando(self, pedido, lbl_status, botoes_layout):
-        pedido['status'] = 'Preparando'
-        lbl_status.text = f"Status: [b]{pedido['status']}[/b]"
-        lbl_status.text_color = get_color_from_hex("#FFEB3B")
+    def marcar_preparando(self, pedido, *args):
+        """Mark order as 'Em Preparo'"""
+        app = MDApp.get_running_app()
+        if app and app.db:
+            status_id = app.db.get_status_id('Em Preparo')
+            if status_id:
+                app.db.execute_query(
+                    "UPDATE pedido SET status_pedido_id_status_pedido = %s WHERE id_pedido = %s",
+                    (status_id, pedido['id']),
+                    fetch=False
+                )
+        
+        # Refresh the list
+        self.carregar_pedidos_reais()
 
-        botoes_layout.clear_widgets()
-
-        btn_detalhes = MDRaisedButton(
-            text="Ver Detalhes",
-            md_bg_color=get_color_from_hex("#1565C0"),
-            on_release=lambda x: self.ver_detalhes(pedido, lbl_status)
-        )
-        botoes_layout.add_widget(btn_detalhes)
-
-        btn_pronto = MDRaisedButton(
-            text="Pronto",
-            md_bg_color=get_color_from_hex("#4CAF50"),
-            on_release=lambda x: self.marcar_pronto(pedido, lbl_status, botoes_layout)
-        )
-        botoes_layout.add_widget(btn_pronto)
-
-        self.piscar_status(lbl_status, get_color_from_hex("#FFEB3B"))
-
-    def marcar_pronto(self, pedido, lbl_status, botoes_layout):
-        pedido['status'] = 'Pronto'
-        lbl_status.text = f"Status: [b]{pedido['status']}[/b]"
-        lbl_status.text_color = get_color_from_hex("#4CAF50")
-
-        botoes_layout.clear_widgets()
-
-        btn_detalhes = MDRaisedButton(
-            text="Ver Detalhes",
-            md_bg_color=get_color_from_hex("#1565C0"),
-            on_release=lambda x: self.ver_detalhes(pedido, lbl_status)
-        )
-        botoes_layout.add_widget(btn_detalhes)
-
-        self.piscar_status(lbl_status, get_color_from_hex("#4CAF50"))
-
-    def piscar_status(self, lbl_status, color):
-        def reset_color(dt):
-            lbl_status.text_color = (0, 0, 0, 1)
-
-        lbl_status.text_color = color
-        Clock.schedule_once(reset_color, 0.5)
+    def marcar_pronto(self, pedido, *args):
+        """Mark order as 'Pronto'"""
+        app = MDApp.get_running_app()
+        if app and app.db:
+            status_id = app.db.get_status_id('Pronto')
+            if status_id:
+                app.db.execute_query(
+                    "UPDATE pedido SET status_pedido_id_status_pedido = %s WHERE id_pedido = %s",
+                    (status_id, pedido['id']),
+                    fetch=False
+                )
+        
+        # Refresh the list
+        self.carregar_pedidos_reais()

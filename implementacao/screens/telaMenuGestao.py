@@ -76,7 +76,7 @@ KV_CONTENT = '''
                 text: 'VERSÃO WEB'
                 button_bg_color: 0.721, 0.525, 0.043, 1
                 button_radius: dp(12)
-                on_release: root.open_web_version() # Chama a função para abrir o link
+                on_release: on_release: root.abrir_dashboard() 
 
             CustomStyledButton:
                 text: 'VOLTAR'
@@ -101,12 +101,12 @@ class TelaMenuGestao(MDScreen):
     def go_to_back_gestao(self):
         self.manager.current = 'tela_gestao'
 
-    def open_web_version(self):
-        web_link = "https://www.google.com" 
+    def abrir_dashboard(self):
+        url_dashboard = "http://localhost:8501"
         try:
-            webbrowser.open(web_link)
-            print(f"Abrindo versão web: {web_link}")
+            webbrowser.open(url_dashboard)
+            print(f"Abrindo dashboard no navegador: {url_dashboard}")
         except Exception as e:
-            print(f"Erro ao abrir o link da web: {e}")
+            print(f"Erro ao abrir o dashboard no navegador: {e}")
           
 from kivymd.app import MDApp

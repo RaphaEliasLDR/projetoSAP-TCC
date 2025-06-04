@@ -258,6 +258,37 @@ class DatabaseManager:
             WHERE tipo_usuario_id_tipo_usuario = %s
         """
         return self.execute_query(query, (tipo_usuario_id,))
+    
+    def get_historico_pedidos(self, dias=7):
+        query = """
+        SELECT 
+            p.id_pedido,
+            DATE_FORMAT(p.data_hora, '%%d/%%m/%%Y %%H:%%i') as data_formatada,
+            m.numero_mesa,
+            u.nome_completo as garcom,
+            SUM(ip.quantidade * ip.preco_unitario) as total
+        FROM pedido p
+        JOIN item_pedido ip ON p.id_pedido = ip.pedido_id_pedido
+        JOIN usuario u ON p.usuario_id_garcom = u.id_usuario
+        JOIN mesa m ON p.mesa_id_mesa = m.id_mesa
+        WHERE p.data_hora >= DATE_SUB(NOW(), INTERVAL %s DAY)
+        GROUP BY p.id_pedido
+        ORDER BY p.data_hora DESC  -- Ordena do mais recente para o mais antigo
+        """
+        return self.execute_query(query, (dias,))
+
+    def get_detalhes_pedido(self, pedido_id):
+        query = """
+        SELECT 
+            i.nome,
+            ip.quantidade,
+            ip.preco_unitario
+        FROM item_pedido ip
+        JOIN item i ON ip.item_id_item = i.id_item
+        WHERE ip.pedido_id_pedido = %s
+        ORDER BY i.nome  -- Ordena os itens alfabeticamente
+        """
+        return self.execute_query(query, (pedido_id,))
 
 if __name__ == "__main__":
     db = DatabaseManager()

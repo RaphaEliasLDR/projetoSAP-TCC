@@ -19,6 +19,7 @@ from screens.telaCadastroFuncionario import TelaCadastroFuncionario
 from screens.telaCadastroPrato import TelaCadastroPrato
 from screens.telaListarPratos import TelaListarPratos
 from screens.telaListarFuncionarios import TelaListarFuncionarios
+from screens.telaHistoricoPedidos import TelaHistoricoPedidos
 
 from database import DatabaseManager
 
@@ -64,9 +65,9 @@ class SistemaPedidosApp(MDApp):
         sm.add_widget(TelaMenuGestao(name="tela_menu_gestao")) 
         sm.add_widget(TelaCadastroFuncionario(name='cadastro_funcionario'))
         sm.add_widget(TelaCadastroPrato(name='cadastro_prato'))
-        sm.current = "tela_inicial"
         sm.add_widget(TelaListarPratos(name='listar_pratos'))
         sm.add_widget(TelaListarFuncionarios(name='listar_funcionarios'))
+        sm.add_widget(TelaHistoricoPedidos(name='tela_historico'))
         return sm
     
     def mudar_tela(self, screen_name):

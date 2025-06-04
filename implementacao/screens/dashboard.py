@@ -8,7 +8,7 @@ def dashboard():
     
     col1, col2 = st.columns([1, 4])
     with col1:
-        logo_path = Path(__file__).parent.parent / "assets" / "logoSAP4.JPG"
+        logo_path = Path(__file__).parent.parent / "assets" / "SAPlogoDashboard.png"
         st.image(str(logo_path), width=100) 
     with col2:
         st.title("Dashboard - Visão Geral")
