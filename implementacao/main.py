@@ -12,6 +12,7 @@ from screens.telaBoasVindas import BoasVindasScreen
 from screens.telaPedidos import TelaPedidos
 from screens.telaMenu import TelaMenu
 from screens.telaCozinha import TelaCozinha
+from screens.telaStatus import TelaStatus
 from screens.telaGestao import TelaGestao
 from screens.telaMenuGestao import TelaMenuGestao
 from screens.telaCadastroFuncionario import TelaCadastroFuncionario
@@ -58,6 +59,7 @@ class SistemaPedidosApp(MDApp):
         sm.add_widget(TelaPedidos(name="tela_pedido"))
         sm.add_widget(TelaMenu(name="tela_menu"))
         sm.add_widget(TelaCozinha(name="tela_cozinha"))
+        sm.add_widget(TelaStatus(name="tela_status"))
         sm.add_widget(TelaGestao(name="tela_gestao"))
         sm.add_widget(TelaMenuGestao(name="tela_menu_gestao")) 
         sm.add_widget(TelaCadastroFuncionario(name='cadastro_funcionario'))
